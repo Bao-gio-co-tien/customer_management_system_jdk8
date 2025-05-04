@@ -7,14 +7,11 @@ import CMS.*;
 public class Client {
     public static void main(String[] args) {
         try {
-            // Initialize ORB
             ORB orb = ORB.init(args, null);
 
-            // Get Naming Service
             org.omg.CORBA.Object namingObj = orb.resolve_initial_references("NameService");
             NamingContextExt namingContext = NamingContextExtHelper.narrow(namingObj);
 
-            // Resolve services
             CustomerInfoService infoService = CustomerInfoServiceHelper.narrow(
                     namingContext.resolve_str("CustomerInfoService"));
             CustomerUpdateService updateService = CustomerUpdateServiceHelper.narrow(
@@ -24,7 +21,6 @@ public class Client {
             CustomerCareService careService = CustomerCareServiceHelper.narrow(
                     namingContext.resolve_str("CustomerCareService"));
 
-            // Test services
             // 1. Get customer
             CustomerInfo customer = infoService.getCustomer("C001");
             System.out.println("Customer: " + customer.customerName + ", Email: " + customer.customerEmail);

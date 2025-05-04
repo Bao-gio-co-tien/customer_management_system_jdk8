@@ -1,53 +1,114 @@
 package impl;
 
+
 import CMS.CustomerInfo;
 import CMS.CustomerInfoServicePOA;
+import db.DatabaseConnection;
 import org.omg.CORBA.ORB;
 
+import java.sql.*;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 public class CustomerInfoServiceImpl extends CustomerInfoServicePOA {
     private ORB orb;
-    private Map<String, CustomerInfo> customerDatabase;
 
     public CustomerInfoServiceImpl(ORB orb) {
         this.orb = orb;
-        this.customerDatabase = new HashMap<>();
-
-        customerDatabase.put("C001", new CustomerInfo("C001", "John Doe", "john@example.com", "123456789", "123 Main St", "Active"));
     }
 
     @Override
     public CustomerInfo getCustomer(String customerId) {
-        return customerDatabase.get(customerId);
+        CustomerInfo customer = null;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "SELECT * FROM Customers WHERE customerId = ?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, customerId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                customer = new CustomerInfo(
+                        rs.getString("customerId"),
+                        rs.getString("customerName"),
+                        rs.getString("customerEmail"),
+                        rs.getString("customerPhone"),
+                        rs.getString("customerAddress"),
+                        rs.getString("customerStatus")
+                );
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return customer;
     }
 
     @Override
     public CustomerInfo[] searchCustomer(String criteria) {
-        ArrayList<CustomerInfo> result = new ArrayList<>();
-        for (CustomerInfo customer : customerDatabase.values()) {
-            if (customer.customerName.contains(criteria) || customer.customerEmail.contains(criteria)) {
-                result.add(customer);
+        ArrayList<CustomerInfo> list = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "SELECT * FROM Customers WHERE customerName LIKE ? OR customerEmail LIKE ?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, "%" + criteria + "%");
+            pstmt.setString(2, "%" + criteria + "%");
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                CustomerInfo c = new CustomerInfo(
+                        rs.getString("customerId"),
+                        rs.getString("customerName"),
+                        rs.getString("customerEmail"),
+                        rs.getString("customerPhone"),
+                        rs.getString("customerAddress"),
+                        rs.getString("customerStatus")
+                );
+                list.add(c);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-        return result.toArray(new CustomerInfo[0]);
+        return list.toArray(new CustomerInfo[0]);
     }
 
     @Override
-    public boolean addCustomer(CustomerInfo customerInfo) {
-        // Implement the logic to add a new customer
-        if (customerDatabase.containsKey(customerInfo.customerId)) {
+    public boolean addCustomer(CustomerInfo customer) {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "INSERT INTO Customers (customerId, customerName, customerEmail, customerPhone, customerAddress, customerStatus) VALUES (?, ?, ?, ?, ?, ?)";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, customer.customerId);
+            pstmt.setString(2, customer.customerName);
+            pstmt.setString(3, customer.customerEmail);
+            pstmt.setString(4, customer.customerPhone);
+            pstmt.setString(5, customer.customerAddress);
+            pstmt.setString(6, customer.customerStatus);
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
             return false;
         }
-        customerDatabase.put(customerInfo.customerId, customerInfo);
-        return true;
     }
 
     @Override
     public CustomerInfo[] getAllCustomer() {
-        // Implement the logic to retrieve all customers
-        return customerDatabase.values().toArray(new CustomerInfo[0]);
+        ArrayList<CustomerInfo> list = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "SELECT * FROM Customers";
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+
+            while (rs.next()) {
+                CustomerInfo c = new CustomerInfo(
+                        rs.getString("customerId"),
+                        rs.getString("customerName"),
+                        rs.getString("customerEmail"),
+                        rs.getString("customerPhone"),
+                        rs.getString("customerAddress"),
+                        rs.getString("customerStatus")
+                );
+                list.add(c);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list.toArray(new CustomerInfo[0]);
     }
 }
